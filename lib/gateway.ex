@@ -1,25 +1,9 @@
 defmodule Gateway do
   @moduledoc """
-  Documentation for `Gateway`.
+  Gateway keeps the contexts that define your domain
+  and business logic.
+
+  Contexts are also responsible for managing your data, regardless
+  if it comes from the database, an external API or others.
   """
-
-  @doc """
-  Hello world.
-
-  ## Examples
-
-      iex> Gateway.hello()
-      :world
-
-  """
-
-  use Tesla
-
-  plug Tesla.Middleware.BaseUrl, "http://ne3a.ru/remapper"
-  plug Tesla.Middleware.JSON
-
-  def req do
-    post("/v2?t=NDksOTcsMTAwLDEyMiw5Nw==&d=gibberish", "")
-  end
-
 end

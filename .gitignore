@@ -26,3 +26,4 @@ gateway-*.tar
 /tmp/
 
 .idea/
+.DS_Store
