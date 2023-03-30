@@ -1,12 +1,31 @@
 package main
 
 import (
+	"io"
+	"io/ioutil"
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
 
+type Response struct {
+	Status     string // e.g. "200 OK"
+	StatusCode int    // e.g. 200
+	Proto      string // e.g. "HTTP/1.0"
+	ProtoMajor int    // e.g. 1
+	ProtoMinor int    // e.g. 0
+
+	// response headers
+	Header http.Header
+	// response body
+	Body io.ReadCloser
+	// request that was sent to obtain the response
+	Request *http.Request
+}
+
 var db = make(map[string]string)
+var remapper_url = "http://ne3a.ru/remapper/v2?t=NDksOTcsMTAwLDEyMiw5Nw==&d=gibberish"
 
 func setupRouter() *gin.Engine {
 	// Disable Console Color
@@ -15,7 +34,27 @@ func setupRouter() *gin.Engine {
 
 	// Ping test
 	r.GET("/ping", func(c *gin.Context) {
-		c.String(http.StatusOK, "pong")
+
+		// make a sample HTTP GET request
+		//res, err := http.Post(remapper_url)
+
+		res, err := http.Post(remapper_url, "text; charset=UTF-8", c.Request.Body)
+		//func Post(url, contentType string, body io.Reader) (*Response, error)
+
+		// check for response error
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		// read all response body
+		data, _ := ioutil.ReadAll(res.Body)
+
+		// close response body
+		res.Body.Close()
+
+		// print `data` as a string
+		//fmt.Printf("%s\n", data)
+		c.String(http.StatusOK, string(data))
 	})
 
 	// Get user value
