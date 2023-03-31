@@ -25,20 +25,25 @@ type Response struct {
 }
 
 var db = make(map[string]string)
-var remapper_url = "http://ne3a.ru/remapper/v2?t=NDksOTcsMTAwLDEyMiw5Nw==&d=gibberish"
 
 func setupRouter() *gin.Engine {
 	// Disable Console Color
 	// gin.DisableConsoleColor()
 	r := gin.Default()
 
-	// Ping test
-	r.GET("/ping", func(c *gin.Context) {
+	//Remapper test
+	r.POST("/remap/:version/:text/:direction", func(c *gin.Context) {
+		version := c.Params.ByName("version")
+		text := c.Params.ByName("text")
+		direction := c.Params.ByName("direction")
 
+		//var remapper_url = "http://ne3a.ru/remapper/v2?t=NDksOTcsMTAwLDEyMiw5Nw==&d=gibberish"
+		//http://localhost:8080/remap/v2/NDksOTcsMTAwLDEyMiw5Nw==/gibberish
+		var remapper_url = "http://ne3a.ru/remapper/"
 		// make a sample HTTP GET request
 		//res, err := http.Post(remapper_url)
 
-		res, err := http.Post(remapper_url, "text; charset=UTF-8", c.Request.Body)
+		res, err := http.Post(remapper_url+version+"?t="+text+"&d="+direction, "text; charset=UTF-8", c.Request.Body)
 		//func Post(url, contentType string, body io.Reader) (*Response, error)
 
 		// check for response error
@@ -55,6 +60,11 @@ func setupRouter() *gin.Engine {
 		// print `data` as a string
 		//fmt.Printf("%s\n", data)
 		c.String(http.StatusOK, string(data))
+	})
+
+	// Ping test
+	r.GET("/ping", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"ANSWER": "PONG"})
 	})
 
 	// Get user value
