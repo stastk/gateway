@@ -1,10 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"regexp"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -26,24 +29,51 @@ type Response struct {
 
 var db = make(map[string]string)
 
+func contains(s []string, str string) bool {
+	for _, v := range s {
+		if v == str {
+			return true
+		}
+	}
+	return false
+}
+
 func setupRouter() *gin.Engine {
 	// Disable Console Color
 	// gin.DisableConsoleColor()
 	r := gin.Default()
 
 	//Remapper test
-	r.POST("/remap/:version/:text/:direction", func(c *gin.Context) {
-		version := c.Params.ByName("version")
-		text := c.Params.ByName("text")
-		direction := c.Params.ByName("direction")
+	r.GET("/remap/:version/:content/:direction", func(c *gin.Context) {
+
+		versionStr := c.Params.ByName("version")
+		_, versionIntErr := strconv.Atoi(versionStr)
+		if versionStr == "" || versionIntErr != nil {
+			c.JSON(http.StatusOK, gin.H{"gw_err": "Wrong argument #RMP01"})
+			return
+		}
+
+		contentStr := c.Params.ByName("content")
+		contentMatch, _ := regexp.MatchString("(\\A[a-zA-Z]+=*\\z)", contentStr)
+		if contentStr == "" || contentMatch == false {
+			c.JSON(http.StatusOK, gin.H{"gw_err": "Wrong argument #RMP02"})
+			return
+		}
+
+		directionStr := c.Params.ByName("direction")
+		directionOptions := []string{"gibberish", "normal"}
+		fmt.Println("Here:")
+		fmt.Println(contains(directionOptions, directionStr))
+		if directionStr == "" || !contains(directionOptions, directionStr) {
+			c.JSON(http.StatusOK, gin.H{"gw_err": "Wrong argument #RMP03: " + directionStr})
+			return
+		}
 
 		//var remapper_url = "http://ne3a.ru/remapper/v2?t=NDksOTcsMTAwLDEyMiw5Nw==&d=gibberish"
-		//http://localhost:8080/remap/v2/NDksOTcsMTAwLDEyMiw5Nw==/gibberish
-		var remapper_url = "http://ne3a.ru/remapper/"
-		// make a sample HTTP GET request
-		//res, err := http.Post(remapper_url)
+		//http://localhost:8080/remap/2/NDksOTcsMTAwLDEyMiw5Nw==/gibberish
 
-		res, err := http.Post(remapper_url+version+"?t="+text+"&d="+direction, "text; charset=UTF-8", c.Request.Body)
+		var url = "http://ne3a.ru/remapper/"
+		res, err := http.Post(url+"v"+versionStr+"?t="+contentStr+"&d="+directionStr, "text; charset=UTF-8", c.Request.Body)
 		//func Post(url, contentType string, body io.Reader) (*Response, error)
 
 		// check for response error
