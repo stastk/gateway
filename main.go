@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"encoding/json"
 	"io"
 	"io/ioutil"
 	"log"
@@ -27,6 +27,14 @@ type Response struct {
 	Request *http.Request
 }
 
+type RemapperResp struct {
+	Direction       string `json:"direction"`        //To v1
+	InvertDirection string `json:"invert_direction"` //From v1
+	DirectionFrom   string `json:"direction_from"`   //To v2
+	DirectionTo     string `json:"direction_to"`     //From v2
+	Text            []int  `json:"text"`             //Text all versions
+}
+
 var db = make(map[string]string)
 
 func contains(s []string, str string) bool {
@@ -39,22 +47,19 @@ func contains(s []string, str string) bool {
 }
 
 func setupRouter() *gin.Engine {
-	// Disable Console Color
-	// gin.DisableConsoleColor()
 	r := gin.Default()
-
 	//Remapper test
 	r.GET("/remap/:version/:content/:direction", func(c *gin.Context) {
 
 		versionStr := c.Params.ByName("version")
-		_, versionIntErr := strconv.Atoi(versionStr)
+		versionInt, versionIntErr := strconv.Atoi(versionStr)
 		if versionStr == "" || versionIntErr != nil {
 			c.JSON(http.StatusOK, gin.H{"gw_err": "Wrong argument #RMP01"})
 			return
 		}
 
 		contentStr := c.Params.ByName("content")
-		contentMatch, _ := regexp.MatchString("(\\A[a-zA-Z]+=*\\z)", contentStr)
+		contentMatch, _ := regexp.MatchString("(\\A[a-zA-Z0-9]+=*\\z)", contentStr)
 		if contentStr == "" || contentMatch == false {
 			c.JSON(http.StatusOK, gin.H{"gw_err": "Wrong argument #RMP02"})
 			return
@@ -62,8 +67,6 @@ func setupRouter() *gin.Engine {
 
 		directionStr := c.Params.ByName("direction")
 		directionOptions := []string{"gibberish", "normal"}
-		fmt.Println("Here:")
-		fmt.Println(contains(directionOptions, directionStr))
 		if directionStr == "" || !contains(directionOptions, directionStr) {
 			c.JSON(http.StatusOK, gin.H{"gw_err": "Wrong argument #RMP03: " + directionStr})
 			return
@@ -87,9 +90,23 @@ func setupRouter() *gin.Engine {
 		// close response body
 		res.Body.Close()
 
-		// print `data` as a string
-		//fmt.Printf("%s\n", data)
-		c.String(http.StatusOK, string(data))
+		responseData := string(data)
+		//responseData := `{"direction":"1", "text":"657", "invert_direction":"something"}`
+
+		var remapperResp RemapperResp
+
+		remapperRespErr := json.Unmarshal([]byte(responseData), &remapperResp)
+		if remapperRespErr != nil {
+			// some
+		}
+		//fmt.Println("Here 1 :")
+		//fmt.Println(remapperResp)
+
+		if versionInt == 1 {
+			c.JSON(http.StatusOK, gin.H{"text": remapperResp.Text, "direction": remapperResp.Direction, "invert_direction": remapperResp.InvertDirection})
+		} else if versionInt == 2 {
+			c.JSON(http.StatusOK, gin.H{"text": remapperResp.Text, "direction_to": remapperResp.DirectionTo, "direction_from": remapperResp.DirectionFrom})
+		}
 	})
 
 	// Ping test
