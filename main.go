@@ -68,7 +68,7 @@ func setupRouter() *gin.Engine {
 		directionStr := c.Params.ByName("direction")
 		directionOptions := []string{"gibberish", "normal"}
 		if directionStr == "" || !contains(directionOptions, directionStr) {
-			c.JSON(http.StatusOK, gin.H{"gw_err": "Wrong argument #RMP03: " + directionStr})
+			c.JSON(http.StatusOK, gin.H{"gw_err": "Wrong argument #RMP03"})
 			return
 		}
 
@@ -99,14 +99,22 @@ func setupRouter() *gin.Engine {
 		if remapperRespErr != nil {
 			// some
 		}
-		//fmt.Println("Here 1 :")
-		//fmt.Println(remapperResp)
-
+		var processedResponse gin.H
 		if versionInt == 1 {
-			c.JSON(http.StatusOK, gin.H{"text": remapperResp.Text, "direction": remapperResp.Direction, "invert_direction": remapperResp.InvertDirection})
+			processedResponse = gin.H{"text": remapperResp.Text, "direction": remapperResp.Direction, "invert_direction": remapperResp.InvertDirection}
 		} else if versionInt == 2 {
-			c.JSON(http.StatusOK, gin.H{"text": remapperResp.Text, "direction_to": remapperResp.DirectionTo, "direction_from": remapperResp.DirectionFrom})
+			processedResponse = gin.H{"text": remapperResp.Text, "direction_to": remapperResp.DirectionTo, "direction_from": remapperResp.DirectionFrom}
+		} else {
+			c.JSON(http.StatusOK, gin.H{"gw_err": "Wrong argument #RMP04"})
+			return
 		}
+		// if versionInt == 1 {
+		// 	c.JSON(http.StatusOK, gin.H{"text": remapperResp.Text, "direction": remapperResp.Direction, "invert_direction": remapperResp.InvertDirection})
+		// } else if versionInt == 2 {
+		// 	c.JSON(http.StatusOK, gin.H{"text": remapperResp.Text, "direction_to": remapperResp.DirectionTo, "direction_from": remapperResp.DirectionFrom})
+		// }
+
+		c.JSON(http.StatusOK, processedResponse)
 	})
 
 	// Ping test
