@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 
+	remapper "gateway/gtw"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -28,14 +30,6 @@ type Response struct {
 	Request *http.Request
 }
 
-type RemapperResp struct {
-	Direction       string `json:"direction"`        //To v1
-	InvertDirection string `json:"invert_direction"` //From v1
-	DirectionFrom   string `json:"direction_from"`   //To v2
-	DirectionTo     string `json:"direction_to"`     //From v2
-	Text            []int  `json:"text"`             //Text all versions
-}
-
 var db = make(map[string]string)
 
 func containsStr(s []string, str string) bool {
@@ -44,6 +38,7 @@ func containsStr(s []string, str string) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -59,7 +54,8 @@ func containsInt(s []int, str int) bool {
 func setupRouter() *gin.Engine {
 	r := gin.Default()
 	//Remapper test
-	r.POST("/remap/:version/:content/:direction", func(c *gin.Context) {
+
+	r.POST(remapper.RemapperPath, func(c *gin.Context) {
 
 		versionStr := c.Params.ByName("version")
 		versionInt, versionIntErr := strconv.Atoi(versionStr)
@@ -104,7 +100,7 @@ func setupRouter() *gin.Engine {
 		responseData := string(data)
 		//responseData := `{"direction":"1", "text":"657", "invert_direction":"something"}`
 
-		var remapperResp RemapperResp
+		var remapperResp remapper.RemapperResp
 
 		remapperRespErr := json.Unmarshal([]byte(responseData), &remapperResp)
 		if remapperRespErr != nil {
@@ -177,9 +173,11 @@ func setupRouter() *gin.Engine {
 	})
 
 	return r
+
 }
 
 func main() {
+
 	r := setupRouter()
 	// Listen and Server in 0.0.0.0:8080
 	r.Run(":8080")
