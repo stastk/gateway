@@ -4,6 +4,8 @@ import (
 	"io"
 	"net/http"
 
+	remapper "gateway/gtw"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -27,6 +29,11 @@ var db = make(map[string]string)
 func setupRouter() *gin.Engine {
 	r := gin.Default()
 	//Remapper test
+
+	r.POST(remapper.RemapperPath, func(c *gin.Context) {
+		remapper.SetPath(c)
+
+	})
 
 	// Ping test
 	r.GET("/ping", func(c *gin.Context) {

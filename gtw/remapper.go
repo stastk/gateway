@@ -2,6 +2,7 @@ package remapper
 
 import (
 	"encoding/json"
+	contains "gateway/helpers"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -34,92 +35,68 @@ type RemapperRespV2 struct {
 
 var RemapperPath = "/remap/:version/:content/:direction"
 
-func containsStr(s []string, str string) bool {
-	for _, v := range s {
-		if v == str {
-			return true
-		}
+func SetPath(c *gin.Context) {
+
+	versionStr := c.Params.ByName("version")
+	versionInt, versionIntErr := strconv.Atoi(versionStr)
+	versionOptions := []int{1, 2}
+	if versionStr == "" || versionIntErr != nil || !contains.ContainsInt(versionOptions, versionInt) {
+		c.JSON(http.StatusOK, gin.H{"gw_err": "Wrong argument #RMP01 in"})
+		return
 	}
 
-	return false
-}
-
-func containsInt(s []int, str int) bool {
-	for _, v := range s {
-		if v == str {
-			return true
-		}
+	contentStr := c.Params.ByName("content")
+	contentMatch, _ := regexp.MatchString("(\\A[a-zA-Z0-9]*=*\\z)", contentStr)
+	if contentMatch == false {
+		c.JSON(http.StatusOK, gin.H{"gw_err": "Wrong argument #RMP02 in"})
+		return
 	}
-	return false
-}
 
-func Remapper() *gin.Engine {
-	r := gin.Default()
-	//Remapper test
+	directionStr := c.Params.ByName("direction")
+	directionOptions := []string{"gibberish", "normal"}
+	if directionStr == "" || !contains.ContainsStr(directionOptions, strings.ToLower(directionStr)) {
+		c.JSON(http.StatusOK, gin.H{"gw_err": "Wrong argument #RMP03 in"})
+		return
+	}
 
-	r.POST(RemapperPath, func(c *gin.Context) {
+	//var remapper_url = "http://ne3a.ru/remapper/v2?t=NDksOTcsMTAwLDEyMiw5Nw==&d=gibberish"
+	//http://localhost:8080/remap/2/NDksOTcsMTAwLDEyMiw5Nw==/gibberish
 
-		versionStr := c.Params.ByName("version")
-		versionInt, versionIntErr := strconv.Atoi(versionStr)
-		versionOptions := []int{1, 2}
-		if versionStr == "" || versionIntErr != nil || !containsInt(versionOptions, versionInt) {
-			c.JSON(http.StatusOK, gin.H{"gw_err": "Wrong argument #RMP01 in"})
-			return
-		}
+	var url = "http://ne3a.ru/remapper/"
+	res, err := http.Post(url+"v"+versionStr+"?t="+contentStr+"&d="+strings.ToLower(directionStr), "text; charset=UTF-8", c.Request.Body)
+	//func Post(url, contentType string, body io.Reader) (*Response, error)
 
-		contentStr := c.Params.ByName("content")
-		contentMatch, _ := regexp.MatchString("(\\A[a-zA-Z0-9]*=*\\z)", contentStr)
-		if contentMatch == false {
-			c.JSON(http.StatusOK, gin.H{"gw_err": "Wrong argument #RMP02 in"})
-			return
-		}
+	// check for response error
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"gw_err": "Error #RMP00 out"})
+		log.Fatal(err)
+	}
 
-		directionStr := c.Params.ByName("direction")
-		directionOptions := []string{"gibberish", "normal"}
-		if directionStr == "" || !containsStr(directionOptions, strings.ToLower(directionStr)) {
-			c.JSON(http.StatusOK, gin.H{"gw_err": "Wrong argument #RMP03 in"})
-			return
-		}
+	// read all response body
+	data, _ := ioutil.ReadAll(res.Body)
 
-		//var remapper_url = "http://ne3a.ru/remapper/v2?t=NDksOTcsMTAwLDEyMiw5Nw==&d=gibberish"
-		//http://localhost:8080/remap/2/NDksOTcsMTAwLDEyMiw5Nw==/gibberish
+	// close response body
+	res.Body.Close()
 
-		var url = "http://ne3a.ru/remapper/"
-		res, err := http.Post(url+"v"+versionStr+"?t="+contentStr+"&d="+strings.ToLower(directionStr), "text; charset=UTF-8", c.Request.Body)
-		//func Post(url, contentType string, body io.Reader) (*Response, error)
+	responseData := string(data)
 
-		// check for response error
-		if err != nil {
-			log.Fatal(err)
-		}
+	var remapperResp RemapperResp
 
-		// read all response body
-		data, _ := ioutil.ReadAll(res.Body)
+	remapperRespErr := json.Unmarshal([]byte(responseData), &remapperResp)
+	if remapperRespErr != nil {
+		c.JSON(http.StatusOK, gin.H{"gw_err": "Wrong argument #RMP01 out"})
+		return
+	}
+	if !contains.ContainsStr(directionOptions, strings.ToLower(remapperResp.Direction)) && !contains.ContainsStr(directionOptions, strings.ToLower(remapperResp.DirectionTo)) {
+		c.JSON(http.StatusOK, gin.H{"gw_err": "Wrong argument #RMP02 out"})
+		return
+	}
+	var processedResponse gin.H
+	if versionInt == 1 {
+		processedResponse = gin.H{"text": remapperResp.Text, "direction": strings.ToLower(remapperResp.Direction), "invert_direction": strings.ToLower(remapperResp.InvertDirection)}
+	} else if versionInt == 2 {
+		processedResponse = gin.H{"text": remapperResp.Text, "direction_to": strings.ToLower(remapperResp.DirectionTo), "direction_from": strings.ToLower(remapperResp.DirectionFrom)}
+	}
 
-		// close response body
-		res.Body.Close()
-
-		responseData := string(data)
-		//responseData := `{"direction":"1", "text":"657", "invert_direction":"something"}`
-
-		var remapperResp RemapperResp
-
-		remapperRespErr := json.Unmarshal([]byte(responseData), &remapperResp)
-		if remapperRespErr != nil {
-			c.JSON(http.StatusOK, gin.H{"gw_err": "Wrong argument #RMP01 out"})
-			return
-		}
-		if !containsStr(directionOptions, strings.ToLower(remapperResp.Direction)) && !containsStr(directionOptions, strings.ToLower(remapperResp.DirectionTo)) {
-			c.JSON(http.StatusOK, gin.H{"gw_err": "Wrong argument #RMP02 out"})
-			return
-		}
-		var processedResponse gin.H
-		if versionInt == 1 {
-			processedResponse = gin.H{"text": remapperResp.Text, "direction": strings.ToLower(remapperResp.Direction), "invert_direction": strings.ToLower(remapperResp.InvertDirection)}
-		} else if versionInt == 2 {
-			processedResponse = gin.H{"text": remapperResp.Text, "direction_to": strings.ToLower(remapperResp.DirectionTo), "direction_from": strings.ToLower(remapperResp.DirectionFrom)}
-		}
-
-		c.JSON(http.StatusOK, processedResponse)
-	})
+	c.JSON(http.StatusOK, processedResponse)
 }
