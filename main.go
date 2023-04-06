@@ -31,7 +31,7 @@ func setupRouter() *gin.Engine {
 	//Remapper test
 
 	r.POST(remapper.RemapperPath, func(c *gin.Context) {
-		remapper.SetPath(c)
+		remapper.GwRemap(c)
 	})
 
 	// Ping test
