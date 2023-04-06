@@ -19,20 +19,7 @@ type RemapperResp struct {
 	DirectionFrom string
 	DirectionTo   string
 	Text          []int
-}
-
-// Struct for #ver.1 api
-type RemapperRespV1 struct {
-	DirectionFrom string `json:"direction"`
-	DirectionTo   string `json:"invert_direction"`
-	Text          []int  `json:"text"`
-}
-
-// Struct for #ver.2 api
-type RemapperRespV2 struct {
-	DirectionFrom string `json:"direction_from"`
-	DirectionTo   string `json:"direction_to"`
-	Text          []int  `json:"text"`
+	Version       int
 }
 
 // Config: //
@@ -42,12 +29,6 @@ var RemapperPath = "/remap/:version/:content/:direction"
 
 // Options of api versions we have
 var versionOptions = []int{1, 2}
-
-// Response for #ver.1
-var remapperRespV1 RemapperRespV1
-
-// Response for #ver.2
-var remapperRespV2 RemapperRespV2
 
 func SetPath(c *gin.Context) {
 
@@ -95,7 +76,6 @@ func SetPath(c *gin.Context) {
 	fmt.Println("HERE 002>")
 	fmt.Println(responseData)
 	var remapperRespErr error
-	///////
 
 	toMap := []byte(responseData)
 	var mappedString map[string]interface{}
@@ -103,18 +83,24 @@ func SetPath(c *gin.Context) {
 		panic(err)
 	}
 
+	// According to #ver. parse response in a different ways
 	var dirRr string
 	var indirRr string
 	var textRr []int
-
 	if versionInt == 1 {
 		dirRr = fmt.Sprintf("%v", mappedString["direction"])
-		indirRr = fmt.Sprintf("%v", mappedString["direction_invert"])
-		textRr = mappedString["text"].([]int)
+		indirRr = fmt.Sprintf("%v", mappedString["invert_direction"])
+		for i, value := range mappedString["text"].([]interface{}) {
+			textRr = append(textRr, int(value.(float64)))
+			i++
+		}
 	} else if versionInt == 2 {
-		dirRr = fmt.Sprintf("%v", mappedString["direction"])
-		indirRr = fmt.Sprintf("%v", mappedString["direction_invert"])
-		textRr = mappedString["text"].([]int)
+		dirRr = fmt.Sprintf("%v", mappedString["direction_from"])
+		indirRr = fmt.Sprintf("%v", mappedString["direction_to"])
+		for i, value := range mappedString["text"].([]interface{}) {
+			textRr = append(textRr, int(value.(float64)))
+			i++
+		}
 	}
 
 	remapperResp := RemapperResp{
@@ -123,7 +109,6 @@ func SetPath(c *gin.Context) {
 		Text:          textRr,
 	}
 
-	//////
 	if remapperRespErr != nil {
 		c.JSON(http.StatusOK, gin.H{"gw_err": "Wrong argument #RMP01 out"})
 		return
@@ -133,16 +118,11 @@ func SetPath(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, FinaleAnswer(remapperResp))
-}
-
-// Here we try to create last answer template according to #ver. param
-func FinaleAnswer(v interface{}) gin.H {
-	switch v.(type) {
-	case RemapperRespV1:
-		return gin.H{"text": v.(RemapperRespV1).Text, "direction": strings.ToLower(v.(RemapperRespV1).DirectionTo), "invert_direction": strings.ToLower(v.(RemapperRespV1).DirectionFrom)}
-	case RemapperRespV2:
-		return gin.H{"text": v.(RemapperRespV2).Text, "direction_to": strings.ToLower(v.(RemapperRespV2).DirectionTo), "direction_from": strings.ToLower(v.(RemapperRespV2).DirectionFrom)}
+	// Check #ver. and fire final request
+	if versionInt == 1 {
+		c.JSON(http.StatusOK, gin.H{"text": remapperResp.Text, "direction": strings.ToLower(remapperResp.DirectionFrom), "invert_direction": strings.ToLower(remapperResp.DirectionTo)})
+	} else if versionInt == 2 {
+		c.JSON(http.StatusOK, gin.H{"text": remapperResp.Text, "direction_to": strings.ToLower(remapperResp.DirectionFrom), "direction_from": strings.ToLower(remapperResp.DirectionTo)})
 	}
-	return gin.H{"gw_err": "Error #RMP00-02"}
+
 }
