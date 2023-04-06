@@ -16,9 +16,9 @@ import (
 
 // struct for #ver.1 and #ver.2 api
 type RemapperResp struct {
-	DirectionFrom string
-	DirectionTo   string
 	Text          []int
+	DirectionTo   string
+	DirectionFrom string
 	Version       int
 }
 
@@ -33,15 +33,9 @@ var versionIntErr error
 func GwRemap(c *gin.Context) {
 
 	versionStr := c.Params.ByName("version")
-	if versionStr == "latest" || versionStr == "" {
-		versionInt = versionOptions[len(versionOptions)-1]
-		versionStr = strconv.Itoa(versionInt)
-	} else {
-		versionInt, versionIntErr = strconv.Atoi(versionStr)
-	}
-
+	versionInt, versionIntErr = strconv.Atoi(versionStr)
 	if versionStr == "" || versionIntErr != nil || !contains.ContainsInt(versionOptions, versionInt) {
-		c.JSON(http.StatusOK, gin.H{"gw_err": "Wrong argument #RMP01 in"})
+		c.JSON(http.StatusOK, gin.H{"gw_err": "Wrong argument #RMP01 in " + versionStr})
 		return
 	}
 
@@ -85,10 +79,11 @@ func GwRemap(c *gin.Context) {
 		panic(err)
 	}
 
-	// according to #ver. parse response in a different ways
-	var directionFrom string
-	var directionTo string
 	var textContent []int
+	var directionTo string
+	var directionFrom string
+
+	// according to #ver. parse response in a different ways
 	if versionInt == 1 {
 		directionFrom = fmt.Sprintf("%v", mappedString["direction"])
 		directionTo = fmt.Sprintf("%v", mappedString["invert_direction"])
@@ -118,21 +113,29 @@ func GwRemap(c *gin.Context) {
 		return
 	}
 
-	// check #ver. and fire final request to remapper
+	// final request to remapper
+	c.JSON(http.StatusOK, LastAnswer(remapperResp.Text, remapperResp.DirectionTo, remapperResp.DirectionFrom, remapperResp.Version))
+
+}
+
+// check #ver. before sending final request to remapper
+func LastAnswer(text []int, to string, from string, version int) gin.H {
+	var toBeSend gin.H
 	if versionInt == 1 {
-		c.JSON(http.StatusOK, gin.H{
-			"text":             remapperResp.Text,
-			"direction":        strings.ToLower(remapperResp.DirectionTo),
-			"invert_direction": strings.ToLower(remapperResp.DirectionFrom),
-			"version":          remapperResp.Version,
-		})
+		toBeSend = gin.H{
+			"text":             text,
+			"direction":        strings.ToLower(to),
+			"invert_direction": strings.ToLower(from),
+			"version":          version,
+		}
 	} else if versionInt == 2 {
-		c.JSON(http.StatusOK, gin.H{
-			"text":           remapperResp.Text,
-			"direction_to":   strings.ToLower(remapperResp.DirectionTo),
-			"direction_from": strings.ToLower(remapperResp.DirectionFrom),
-			"version":        remapperResp.Version,
-		})
+		toBeSend = gin.H{
+			"text":           text,
+			"direction_to":   strings.ToLower(to),
+			"direction_from": strings.ToLower(from),
+			"version":        version,
+		}
 	}
 
+	return toBeSend
 }
