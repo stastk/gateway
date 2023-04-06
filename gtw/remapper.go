@@ -2,8 +2,9 @@ package remapper
 
 import (
 	"encoding/json"
+	"fmt"
 	contains "gateway/helpers"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"regexp"
@@ -13,33 +14,45 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// Struct for #ver.1 and #ver.2 api
 type RemapperResp struct {
-	Direction       string `json:"direction"`        //To v1
-	InvertDirection string `json:"invert_direction"` //From v1
-	DirectionFrom   string `json:"direction_from"`   //To v2
-	DirectionTo     string `json:"direction_to"`     //From v2
-	Text            []int  `json:"text"`             //Text all versions
+	DirectionFrom string
+	DirectionTo   string
+	Text          []int
 }
 
+// Struct for #ver.1 api
 type RemapperRespV1 struct {
-	Direction       string `json:"direction"`
-	InvertDirection string `json:"invert_direction"`
-	Text            []int  `json:"text"`
+	DirectionFrom string `json:"direction"`
+	DirectionTo   string `json:"invert_direction"`
+	Text          []int  `json:"text"`
 }
 
+// Struct for #ver.2 api
 type RemapperRespV2 struct {
 	DirectionFrom string `json:"direction_from"`
 	DirectionTo   string `json:"direction_to"`
 	Text          []int  `json:"text"`
 }
 
+// Config: //
+
+// Route for sending data to us
 var RemapperPath = "/remap/:version/:content/:direction"
+
+// Options of api versions we have
+var versionOptions = []int{1, 2}
+
+// Response for #ver.1
+var remapperRespV1 RemapperRespV1
+
+// Response for #ver.2
+var remapperRespV2 RemapperRespV2
 
 func SetPath(c *gin.Context) {
 
 	versionStr := c.Params.ByName("version")
 	versionInt, versionIntErr := strconv.Atoi(versionStr)
-	versionOptions := []int{1, 2}
 	if versionStr == "" || versionIntErr != nil || !contains.ContainsInt(versionOptions, versionInt) {
 		c.JSON(http.StatusOK, gin.H{"gw_err": "Wrong argument #RMP01 in"})
 		return
@@ -59,44 +72,77 @@ func SetPath(c *gin.Context) {
 		return
 	}
 
-	//var remapper_url = "http://ne3a.ru/remapper/v2?t=NDksOTcsMTAwLDEyMiw5Nw==&d=gibberish"
-	//http://localhost:8080/remap/2/NDksOTcsMTAwLDEyMiw5Nw==/gibberish
-
 	var url = "http://ne3a.ru/remapper/"
-	res, err := http.Post(url+"v"+versionStr+"?t="+contentStr+"&d="+strings.ToLower(directionStr), "text; charset=UTF-8", c.Request.Body)
+	var path = url + "v" + versionStr + "?t=" + contentStr + "&d=" + strings.ToLower(directionStr)
+	var contentType = "text; charset=UTF-8"
+	res, err := http.Post(path, contentType, c.Request.Body)
 	//func Post(url, contentType string, body io.Reader) (*Response, error)
 
 	// check for response error
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{"gw_err": "Error #RMP00 out"})
+		c.JSON(http.StatusOK, gin.H{"gw_err": "Error #RMP00-01"})
 		log.Fatal(err)
 	}
 
 	// read all response body
-	data, _ := ioutil.ReadAll(res.Body)
+	data, _ := io.ReadAll(res.Body)
 
 	// close response body
 	res.Body.Close()
 
+	// try to parse response and send answer
 	responseData := string(data)
+	fmt.Println("HERE 002>")
+	fmt.Println(responseData)
+	var remapperRespErr error
+	///////
 
-	var remapperResp RemapperResp
+	toMap := []byte(responseData)
+	var mappedString map[string]interface{}
+	if err := json.Unmarshal(toMap, &mappedString); err != nil {
+		panic(err)
+	}
 
-	remapperRespErr := json.Unmarshal([]byte(responseData), &remapperResp)
+	var dirRr string
+	var indirRr string
+	var textRr []int
+
+	if versionInt == 1 {
+		dirRr = fmt.Sprintf("%v", mappedString["direction"])
+		indirRr = fmt.Sprintf("%v", mappedString["direction_invert"])
+		textRr = mappedString["text"].([]int)
+	} else if versionInt == 2 {
+		dirRr = fmt.Sprintf("%v", mappedString["direction"])
+		indirRr = fmt.Sprintf("%v", mappedString["direction_invert"])
+		textRr = mappedString["text"].([]int)
+	}
+
+	remapperResp := RemapperResp{
+		DirectionFrom: dirRr,
+		DirectionTo:   indirRr,
+		Text:          textRr,
+	}
+
+	//////
 	if remapperRespErr != nil {
 		c.JSON(http.StatusOK, gin.H{"gw_err": "Wrong argument #RMP01 out"})
 		return
 	}
-	if !contains.ContainsStr(directionOptions, strings.ToLower(remapperResp.Direction)) && !contains.ContainsStr(directionOptions, strings.ToLower(remapperResp.DirectionTo)) {
+	if !contains.ContainsStr(directionOptions, strings.ToLower(remapperResp.DirectionTo)) {
 		c.JSON(http.StatusOK, gin.H{"gw_err": "Wrong argument #RMP02 out"})
 		return
 	}
-	var processedResponse gin.H
-	if versionInt == 1 {
-		processedResponse = gin.H{"text": remapperResp.Text, "direction": strings.ToLower(remapperResp.Direction), "invert_direction": strings.ToLower(remapperResp.InvertDirection)}
-	} else if versionInt == 2 {
-		processedResponse = gin.H{"text": remapperResp.Text, "direction_to": strings.ToLower(remapperResp.DirectionTo), "direction_from": strings.ToLower(remapperResp.DirectionFrom)}
-	}
 
-	c.JSON(http.StatusOK, processedResponse)
+	c.JSON(http.StatusOK, FinaleAnswer(remapperResp))
+}
+
+// Here we try to create last answer template according to #ver. param
+func FinaleAnswer(v interface{}) gin.H {
+	switch v.(type) {
+	case RemapperRespV1:
+		return gin.H{"text": v.(RemapperRespV1).Text, "direction": strings.ToLower(v.(RemapperRespV1).DirectionTo), "invert_direction": strings.ToLower(v.(RemapperRespV1).DirectionFrom)}
+	case RemapperRespV2:
+		return gin.H{"text": v.(RemapperRespV2).Text, "direction_to": strings.ToLower(v.(RemapperRespV2).DirectionTo), "direction_from": strings.ToLower(v.(RemapperRespV2).DirectionFrom)}
+	}
+	return gin.H{"gw_err": "Error #RMP00-02"}
 }
