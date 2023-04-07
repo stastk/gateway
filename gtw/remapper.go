@@ -85,15 +85,15 @@ func GwRemap(c *gin.Context) {
 
 	// according to #ver. parse response in a different ways
 	if versionInt == 1 {
-		directionFrom = fmt.Sprintf("%v", mappedString["direction"])
-		directionTo = fmt.Sprintf("%v", mappedString["invert_direction"])
+		directionTo = fmt.Sprintf("%v", mappedString["direction"])
+		directionFrom = fmt.Sprintf("%v", mappedString["invert_direction"])
 		for i, value := range mappedString["text"].([]interface{}) {
 			textContent = append(textContent, int(value.(float64)))
 			i++
 		}
 	} else if versionInt == 2 {
-		directionFrom = fmt.Sprintf("%v", mappedString["direction_from"])
 		directionTo = fmt.Sprintf("%v", mappedString["direction_to"])
+		directionFrom = fmt.Sprintf("%v", mappedString["direction_from"])
 		for i, value := range mappedString["text"].([]interface{}) {
 			textContent = append(textContent, int(value.(float64)))
 			i++
@@ -101,9 +101,9 @@ func GwRemap(c *gin.Context) {
 	}
 
 	remapperResp := RemapperResp{
-		DirectionFrom: directionFrom,
-		DirectionTo:   directionTo,
 		Text:          textContent,
+		DirectionTo:   directionTo,
+		DirectionFrom: directionFrom,
 		Version:       versionInt,
 	}
 
