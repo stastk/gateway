@@ -23,12 +23,13 @@ type RemapperResp struct {
 }
 
 // route for sending data to us
-var RemapperPath = "/remap/:version/:content/:direction"
+var RemapperPath = "/remap/:version/:content/:direction_from"
 
 // options of api versions we have
 var versionOptions = []int{1, 2}
 var versionInt int
 var versionIntErr error
+var directionOptions = []string{"gibberish", "normal"}
 
 func GwRemap(c *gin.Context) {
 
@@ -46,15 +47,15 @@ func GwRemap(c *gin.Context) {
 		return
 	}
 
-	directionStr := c.Params.ByName("direction")
-	directionOptions := []string{"gibberish", "normal"}
-	if directionStr == "" || !contains.ContainsStr(directionOptions, strings.ToLower(directionStr)) {
+	// `direction from`, because we don't know `direction to` when send request
+	directionFromStr := c.Params.ByName("direction_from")
+	if directionFromStr == "" || !contains.ContainsStr(directionOptions, strings.ToLower(directionFromStr)) {
 		c.JSON(http.StatusOK, gin.H{"gw_err": "Wrong argument #RMP03 in"})
 		return
 	}
 
 	var url = "http://ne3a.ru/remapper/"
-	var path = url + "v" + versionStr + "?t=" + contentStr + "&d=" + strings.ToLower(directionStr)
+	var path = url + "v" + versionStr + "?t=" + contentStr + "&d=" + strings.ToLower(directionFromStr)
 	var contentType = "text; charset=UTF-8"
 	res, err := http.Post(path, contentType, c.Request.Body)
 
@@ -69,6 +70,10 @@ func GwRemap(c *gin.Context) {
 
 	// close response body
 	res.Body.Close()
+
+	// --------------------//
+	// Work with answer => //
+	// --------------------//
 
 	// try to parse response
 	responseData := string(data)
