@@ -36,7 +36,7 @@ func GwRemap(c *gin.Context) {
 	versionStr := c.Params.ByName("version")
 	versionInt, versionIntErr = strconv.Atoi(versionStr)
 	if versionStr == "" || versionIntErr != nil || !contains.ContainsInt(versionOptions, versionInt) {
-		c.JSON(http.StatusOK, gin.H{"gw_err": "Wrong argument #RMP01 in " + versionStr})
+		c.JSON(http.StatusOK, gin.H{"gw_err": "Wrong argument #RMP01 in"})
 		return
 	}
 
