@@ -4,7 +4,7 @@ import (
 	"io"
 	"net/http"
 
-	remapper "gateway/gtw"
+	remapper "gateway/gtw/remapper"
 
 	"github.com/gin-gonic/gin"
 )
@@ -28,8 +28,8 @@ var db = make(map[string]string)
 
 func setupRouter() *gin.Engine {
 	r := gin.Default()
-	//Remapper test
 
+	//Remapper test
 	r.POST(remapper.RemapperPath, func(c *gin.Context) {
 		remapper.GwRemap(c)
 	})
